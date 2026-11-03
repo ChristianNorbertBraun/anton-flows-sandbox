@@ -21,20 +21,26 @@ Add `truncate_words(text: str, limit: int, ellipsis: str = "…") -> str` to
    `"a b…"`. If no word was cut (word count <= `limit`), no ellipsis is added.
    A caller who wants a space can pass `ellipsis=" …"`. `ellipsis=""` is
    allowed and simply truncates.
-4. **`limit` of 0 or less.** Raise `ValueError("limit must be positive")`. A
-   result with zero words and only an ellipsis is not useful, and silently
-   returning `""` would hide caller bugs. The check runs before the text is
-   looked at, so it raises even for empty text.
-5. **Empty or whitespace-only text** (with a valid `limit`) returns `""`
-   without an ellipsis, because nothing was cut.
+4. **`limit` of 0 or less.**
+   - A negative `limit` raises `ValueError("limit must not be negative")`.
+     The check runs before the text is looked at, so it raises even for
+     empty text.
+   - A `limit` of 0 returns `""` without an error and without an ellipsis,
+     whatever the text is. This is an explicit exception to rule 3: a result
+     made of only an ellipsis is not useful, so zero words means an empty
+     string.
+5. **Empty or whitespace-only text** (with a non-negative `limit`) returns
+   `""` without an ellipsis, because nothing was cut.
 
 ## Implementation sketch
 
 ```python
 def truncate_words(text: str, limit: int, ellipsis: str = "…") -> str:
     """<docstring documenting rules 1-5>"""
-    if limit <= 0:
-        raise ValueError("limit must be positive")
+    if limit < 0:
+        raise ValueError("limit must not be negative")
+    if limit == 0:
+        return ""
     words = text.split()
     if len(words) <= limit:
         return " ".join(words)
@@ -51,7 +57,8 @@ def truncate_words(text: str, limit: int, ellipsis: str = "…") -> str:
   - `test_truncate_words_normalizes_whitespace`: tabs, newlines and repeated, leading or trailing spaces, both with and without a cut (for example `" a\n\tb  c ", 2` gives `"a b…"`, and `" a  b ", 5` gives `"a b"`).
   - `test_truncate_words_custom_ellipsis`: `ellipsis="..."`, `ellipsis=" …"` and `ellipsis=""`.
   - `test_truncate_words_empty_text`: `""` and `"   "` give `""`.
-  - `test_truncate_words_non_positive_limit_raises`: `limit` of `0` and `-1` raise `ValueError`, including with empty text.
+  - `test_truncate_words_zero_limit_returns_empty`: `limit` of `0` returns `""` with no error and no ellipsis, for non-empty text (`"a b c"`), for empty text, and with a custom `ellipsis`.
+  - `test_truncate_words_negative_limit_raises`: `limit` of `-1` (and, for example, `-5`) raises `ValueError`, including with empty text.
 
 No other files change. `textkit/__init__.py` does not re-export the existing
 helpers, so it stays as it is.
